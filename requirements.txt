@@ -4,4 +4,3 @@ scikit-image
 pillow
 openai
 python-dotenv
-google-docs
