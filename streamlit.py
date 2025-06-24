@@ -46,7 +46,7 @@ bug_type_filter = st.selectbox(
 def generate_bug_excel(bug_report: str) -> BytesIO:
     rows = []
     for line in bug_report.split("\n"):
-        line = line.strip("-•* ").strip()
+        line = line.strip("-\u2022* ").strip()
         if not line:
             continue
         if "missing" in line.lower():
@@ -88,13 +88,14 @@ def format_bug_section(section_title, color, bug_report):
             capture = True
             continue
         if capture and line.strip():
-            cleaned = line.strip("-•* ").strip()
+            cleaned = line.strip("-\u2022* ").strip()
             if cleaned:
                 lines.append(f"<li style='color:{color}; margin-bottom: 4px;'>{cleaned}</li>")
     if lines:
         return f"<h4 style='color:{color}'>{section_title}</h4><ul>{''.join(lines)}</ul>"
     return ""
 
+# Main comparison logic
 if figma_file and app_file and st.button("🧪 Compare"):
     with st.spinner("Analyzing and comparing screenshots..."):
         uid = str(uuid.uuid4())
@@ -109,44 +110,50 @@ if figma_file and app_file and st.button("🧪 Compare"):
         diff_img_path, score = compare_images(figma_path, app_path)
         bug_report = ask_openai_cosmetic_diff(figma_path, app_path)
 
-        st.markdown("### 🔍 Visual Comparison")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.image(figma_path, caption="🎨 Figma Design", use_column_width=True)
-        with col2:
-            st.image(app_path, caption="📱 App Screenshot", use_column_width=True)
-        with col3:
-            st.image(diff_img_path, caption="🔍 Visual Diff", use_column_width=True)
+        st.session_state["figma_path"] = figma_path
+        st.session_state["app_path"] = app_path
+        st.session_state["diff_img_path"] = diff_img_path
+        st.session_state["score"] = score
+        st.session_state["bug_report"] = bug_report
 
-        st.markdown(f"**🔢 Similarity Score:** `{round(score, 4)}`")
-        st.markdown("### 🐞 Detected Cosmetic Bugs:")
+# Display previous result if available
+if "bug_report" in st.session_state:
+    st.markdown("### 🔍 Visual Comparison")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.image(st.session_state["figma_path"], caption="🎨 Figma Design", use_column_width=True)
+    with col2:
+        st.image(st.session_state["app_path"], caption="📱 App Screenshot", use_column_width=True)
+    with col3:
+        st.image(st.session_state["diff_img_path"], caption="🔍 Visual Diff", use_column_width=True)
 
-        styled_bug_report = ""
+    st.markdown(f"**🔢 Similarity Score:** `{round(st.session_state['score'], 4)}`")
+    st.markdown("### 🐞 Detected Cosmetic Bugs:")
 
-        if bug_type_filter == "All" or bug_type_filter == "Missing UI Elements":
-            styled_bug_report += format_bug_section("Missing UI Elements", "#FF4B4B", bug_report)
+    styled_bug_report = ""
+    report = st.session_state["bug_report"]
 
-        if bug_type_filter == "All" or bug_type_filter == "Text Errors":
-            styled_bug_report += format_bug_section("Text Errors", "#3A9BDC", bug_report)
+    if bug_type_filter == "All" or bug_type_filter == "Missing UI Elements":
+        styled_bug_report += format_bug_section("Missing UI Elements", "#FF4B4B", report)
+    if bug_type_filter == "All" or bug_type_filter == "Text Errors":
+        styled_bug_report += format_bug_section("Text Errors", "#3A9BDC", report)
+    if bug_type_filter == "All" or bug_type_filter == "Color Mismatch":
+        styled_bug_report += format_bug_section("Color", "#E68600", report)
+    if bug_type_filter == "All" or bug_type_filter == "Other Cosmetic Differences":
+        styled_bug_report += format_bug_section("Other Cosmetic Differences", "#8B008B", report)
 
-        if bug_type_filter == "All" or bug_type_filter == "Color Mismatch":
-            styled_bug_report += format_bug_section("Color", "#E68600", bug_report)
+    if styled_bug_report:
+        st.markdown(styled_bug_report, unsafe_allow_html=True)
+    else:
+        st.info("No bugs found in the selected category.")
 
-        if bug_type_filter == "All" or bug_type_filter == "Other Cosmetic Differences":
-            styled_bug_report += format_bug_section("Other Cosmetic Differences", "#8B008B", bug_report)
-
-        if styled_bug_report:
-            st.markdown(styled_bug_report, unsafe_allow_html=True)
-        else:
-            st.info("No bugs found in the selected category.")
-
-        bug_excel = generate_bug_excel(bug_report)
-        st.download_button(
-            label="⬇️ Download Bug Report (Excel)",
-            data=bug_excel,
-            file_name="UI_Bug_Report.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    bug_excel = generate_bug_excel(report)
+    st.download_button(
+        label="⬇️ Download Bug Report (Excel)",
+        data=bug_excel,
+        file_name="UI_Bug_Report.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 # ---------- Suggestions Section ----------
 st.markdown("---")
