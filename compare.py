@@ -3,10 +3,8 @@ import base64
 import openai
 import cv2
 from skimage.metrics import structural_similarity as ssim
-from dotenv import load_dotenv
 
-load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+
 
 def compare_images(figma_path, app_path):
     img1 = cv2.imread(figma_path)
